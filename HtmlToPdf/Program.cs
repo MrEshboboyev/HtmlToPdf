@@ -65,7 +65,7 @@ app.MapGet("invoice-report", async (InvoiceFactory invoiceFactory) =>
 
     var template = Handlebars.Compile(templateContent);
 
-    var logoPath = Path.Combine(Directory.GetCurrentDirectory(), "logo.png");
+    var logoPath = Path.Combine(Directory.GetCurrentDirectory(), "logo.jpg");
     var logoBytes = await File.ReadAllBytesAsync(logoPath);
     var logoBase64 = Convert.ToBase64String(logoBytes);
 
