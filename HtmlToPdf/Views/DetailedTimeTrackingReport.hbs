@@ -1,0 +1,552 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Учёт рабочего времени</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 10px;
+            line-height: 1.2;
+            color: #000;
+            background: white;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: left;
+            margin-bottom: 20px;
+            page-break-after: avoid;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-left {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .header-date {
+            font-size: 10px;
+            font-weight: normal;
+        }
+
+        .header-title {
+            font-weight: bold;
+            font-size: 16px;
+            text-align: right;
+            margin-left: auto;
+        }
+
+        .header-url {
+            display: none;
+        }
+
+        .user-section {
+            background: #f0f0f0;
+            padding: 8px;
+            margin: 15px 0;
+            font-weight: bold;
+            font-size: 12px;
+            border: 1px solid #ccc;
+            page-break-before: auto;
+            text-align: center;
+        }
+
+        .timeline-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+            font-size: 9px;
+        }
+
+            .timeline-table th,
+            .timeline-table td {
+                border: 1px solid #ccc;
+                padding: 2px;
+                text-align: center;
+                vertical-align: middle;
+                white-space: nowrap;
+            }
+
+                .timeline-table th.hour-cell {
+                    padding: 0;
+                }
+
+                    .timeline-table th.hour-cell .hour-number {
+                        display: inline-block;
+                        width: calc(100% / 24);
+                        border-right: 1px solid #ccc;
+                        box-sizing: border-box;
+                        font-size: 8px;
+                        text-align: center;
+                        padding: 2px 0;
+                    }
+
+                        .timeline-table th.hour-cell .hour-number:last-child {
+                            border-right: none;
+                        }
+
+            .timeline-table th {
+                background: #f5f5f5;
+                font-weight: bold;
+            }
+
+        .date-cell {
+            font-weight: bold;
+            text-align: left;
+            padding: 3px 5px;
+            width: 100px;
+        }
+
+        .hour-cell {
+            width: 25px;
+            font-size: 8px;
+        }
+
+        .stats-cell {
+            width: 50px;
+            font-size: 8px;
+            text-align: center;
+        }
+
+        .timeline-bar {
+            height: 12px;
+            display: flex;
+            width: 100%;
+        }
+
+        .time-segment {
+            height: 100%;
+        }
+
+        .productive {
+            background: #90EE90; /* Yaxshiroq rang */
+        }
+
+        .unproductive {
+            background: #D3D3D3; /* Yaxshiroq rang */
+        }
+
+        .neutral {
+            background: #F0E68C; /* Sariq rang uchun */
+        }
+
+        .inactive {
+            background: #FFF;
+        }
+
+        .productivity-section {
+            margin: 15px 0;
+            page-break-inside: avoid;
+        }
+
+        .productivity-title {
+            font-weight: bold;
+            font-size: 11px;
+            margin-bottom: 10px;
+            text-align: left;
+        }
+
+        .productivity-item {
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            font-size: 9px;
+        }
+
+        .productivity-bar {
+            height: 15px;
+            background: #f0f0f0;
+            position: relative;
+            margin-left: 10px;
+            flex: 1;
+            border: 1px solid #ccc;
+        }
+
+        .productivity-fill {
+            height: 100%;
+            position: relative;
+        }
+
+        .productivity-text {
+            position: absolute;
+            left: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 8px;
+            font-weight: bold;
+            color: #000;
+            white-space: nowrap;
+        }
+
+        .category-label {
+            width: 200px;
+            flex-shrink: 0;
+            text-align: left;
+        }
+
+        .page-break {
+            page-break-before: always;
+        }
+
+        @media print {
+            body {
+                font-size: 9px;
+            }
+
+            .user-section {
+                page-break-after: avoid;
+            }
+
+            .productivity-section {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-date">23.02.2024</div>
+        <div class="header-title">Учёт рабочего времени за период с 16 февраля 2024 по 25 февраля 2024</div>
+    </div>
+
+    <!-- Bu qism har bir foydalanuvchi uchun takrorlanadi -->
+    <div class="user-section">CallCenter2</div>
+
+    <table class="timeline-table">
+        <thead>
+            <tr>
+                <th rowspan="2" class="date-cell">Дата</th>
+                <th colspan="24" class="stats-headers">
+                    <div style="display: flex; justify-content: space-around;">
+                        <!-- Soatlar -->
+                        <div class="hour-number">00</div>
+                        <div class="hour-number">01</div>
+                        <div class="hour-number">02</div>
+                        <div class="hour-number">03</div>
+                        <div class="hour-number">04</div>
+                        <div class="hour-number">05</div>
+                        <div class="hour-number">06</div>
+                        <div class="hour-number">07</div>
+                        <div class="hour-number">08</div>
+                        <div class="hour-number">09</div>
+                        <div class="hour-number">10</div>
+                        <div class="hour-number">11</div>
+                        <div class="hour-number">12</div>
+                        <div class="hour-number">13</div>
+                        <div class="hour-number">14</div>
+                        <div class="hour-number">15</div>
+                        <div class="hour-number">16</div>
+                        <div class="hour-number">17</div>
+                        <div class="hour-number">18</div>
+                        <div class="hour-number">19</div>
+                        <div class="hour-number">20</div>
+                        <div class="hour-number">21</div>
+                        <div class="hour-number">22</div>
+                        <div class="hour-number">23</div>
+                    </div>
+                </th>
+                <th colspan="2" class="stats-headers">Начало</th>
+                <th colspan="2" class="stats-headers">Окончание</th>
+                <th colspan="2" class="stats-headers">Общее время</th>
+                <th colspan="2" class="stats-headers">Дисциплина</th>
+                <th colspan="2" class="stats-headers">Активность</th>
+                <th colspan="3" class="stats-headers">Продуктивность</th>
+            </tr>
+            <tr>
+                <td colspan="24" style="border: 1px solid #ccc;"></td> <!-- Bo'sh katakcha -->
+                <td class="stats-cell sub-headers">факт</td>
+                <td class="stats-cell sub-headers">распис</td>
+                <td class="stats-cell sub-headers">факт</td>
+                <td class="stats-cell sub-headers">распис</td>
+                <td class="stats-cell sub-headers">факт</td>
+                <td class="stats-cell sub-headers">план</td>
+                <td class="stats-cell sub-headers">сверх</td>
+                <td class="stats-cell sub-headers">опозд</td>
+                <td class="stats-cell sub-headers">актив</td>
+                <td class="stats-cell sub-headers">неактив</td>
+                <td class="stats-cell sub-headers">прод</td>
+                <td class="stats-cell sub-headers">непрод</td>
+                <td class="stats-cell sub-headers">нейтр</td>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Bu qism har bir kun uchun takrorlanadi -->
+            <tr>
+                <td class="date-cell" style="font-weight: normal; font-size: 9px;">21 февраля 2024 г.</td>
+                <td colspan="24" style="padding: 0;">
+                    <div class="timeline-bar">
+                        <!-- Aktivlik vaqtining tasodifiy bloki -->
+                        <div class="time-segment inactive" style="width: 20%;"></div>
+                        <div class="time-segment productive" style="width: 50%;"></div>
+                        <div class="time-segment inactive" style="width: 30%;"></div>
+                    </div>
+                </td>
+                <td class="stats-cell">17ч 05м 32с</td>
+                <td class="stats-cell">9ч 00м 00с</td>
+                <td class="stats-cell">17ч 45м 06с</td>
+                <td class="stats-cell">18ч 00м 00с</td>
+                <td class="stats-cell">17ч 45м 06с</td>
+                <td class="stats-cell">18ч 00м 00с</td>
+                <td class="stats-cell">39м 34с</td>
+                <td class="stats-cell">00м 00с</td>
+                <td class="stats-cell">4ч 05м 32с</td>
+                <td class="stats-cell">25м 58с</td>
+                <td class="stats-cell">19м 57с</td>
+                <td class="stats-cell">05м 18с</td>
+                <td class="stats-cell">37с</td>
+            </tr>
+            <tr>
+                <td colspan="25">
+                    <div class="productivity-section">
+                        <div class="productivity-title">Продуктивность</div>
+                        <!-- Bu qism har bir kategoriya uchun takrorlanadi -->
+                        <div class="productivity-item">
+                            <div class="category-label">Приложения для SIP-телефонии</div>
+                            <div class="productivity-bar">
+                                <div class="productivity-fill productive" style="width: 76.83%;">
+                                    <span class="productivity-text">19м 57с (76.83%)</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="productivity-item">
+                            <div class="category-label">Бухгалтерия</div>
+                            <div class="productivity-bar">
+                                <div class="productivity-fill unproductive" style="width: 20.41%;">
+                                    <span class="productivity-text">05м 18с (20.41%)</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="productivity-item">
+                            <div class="category-label">Интерфейс системы</div>
+                            <div class="productivity-bar">
+                                <div class="productivity-fill neutral" style="width: 2.37%;">
+                                    <span class="productivity-text">37c (2.37%)</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="productivity-item">
+                            <div class="category-label">Всё остальное</div>
+                            <div class="productivity-bar">
+                                <div class="productivity-fill neutral" style="width: 0.26%;">
+                                    <span class="productivity-text">04c (0.26%)</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="productivity-title" style="margin-top: 15px;">Топ приложений</div>
+                        <div class="productivity-item">
+                            <div class="category-label">microsip.exe</div>
+                            <div class="productivity-bar">
+                                <div class="productivity-fill productive" style="width: 76.83%;">
+                                    <span class="productivity-text">19м 57с (76.83%)</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="productivity-item">
+                            <div class="category-label">1cv8c.exe</div>
+                            <div class="productivity-bar">
+                                <div class="productivity-fill unproductive" style="width: 20.41%;">
+                                    <span class="productivity-text">05м 18с (20.41%)</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="productivity-item">
+                            <div class="category-label">explorer.exe</div>
+                            <div class="productivity-bar">
+                                <div class="productivity-fill neutral" style="width: 2.37%;">
+                                    <span class="productivity-text">37c (2.37%)</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="productivity-title" style="margin-top: 15px;">Топ сайтов</div>
+                        <div class="productivity-item">
+                            <div class="category-label">yandex.ru</div>
+                            <div class="productivity-bar">
+                                <div class="productivity-fill unproductive" style="width: 0.13%;">
+                                    <span class="productivity-text">02c (0.13%)</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="productivity-item">
+                            <div class="category-label">browser.exe</div>
+                            <div class="productivity-bar">
+                                <div class="productivity-fill unproductive" style="width: 0.13%;">
+                                    <span class="productivity-text">02c (0.13%)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="page-break"></div> <!-- Sahifani bo'lish -->
+    <!-- Ikkinchi sahifa misoli -->
+    <div class="header">
+        <div class="header-date">23.02.2024</div>
+        <div class="header-title">Учёт рабочего времени за период с 16 февраля 2024 по 25 февраля 2024</div>
+    </div>
+    <div class="user-section">CallCenter4</div>
+
+    <table class="timeline-table">
+        <thead>
+            <tr>
+                <th rowspan="2" class="date-cell">Дата</th>
+                <th colspan="24" class="stats-headers">
+                    <div style="display: flex; justify-content: space-around;">
+                        <div class="hour-number">00</div>
+                        <div class="hour-number">01</div>
+                        <div class="hour-number">02</div>
+                        <div class="hour-number">03</div>
+                        <div class="hour-number">04</div>
+                        <div class="hour-number">05</div>
+                        <div class="hour-number">06</div>
+                        <div class="hour-number">07</div>
+                        <div class="hour-number">08</div>
+                        <div class="hour-number">09</div>
+                        <div class="hour-number">10</div>
+                        <div class="hour-number">11</div>
+                        <div class="hour-number">12</div>
+                        <div class="hour-number">13</div>
+                        <div class="hour-number">14</div>
+                        <div class="hour-number">15</div>
+                        <div class="hour-number">16</div>
+                        <div class="hour-number">17</div>
+                        <div class="hour-number">18</div>
+                        <div class="hour-number">19</div>
+                        <div class="hour-number">20</div>
+                        <div class="hour-number">21</div>
+                        <div class="hour-number">22</div>
+                        <div class="hour-number">23</div>
+                    </div>
+                </th>
+                <th colspan="2" class="stats-headers">Начало</th>
+                <th colspan="2" class="stats-headers">Окончание</th>
+                <th colspan="2" class="stats-headers">Общее время</th>
+                <th colspan="2" class="stats-headers">Дисциплина</th>
+                <th colspan="2" class="stats-headers">Активность</th>
+                <th colspan="3" class="stats-headers">Продуктивность</th>
+            </tr>
+            <tr>
+                <td colspan="24" style="border: 1px solid #ccc;"></td>
+                <td class="stats-cell sub-headers">факт</td>
+                <td class="stats-cell sub-headers">распис</td>
+                <td class="stats-cell sub-headers">факт</td>
+                <td class="stats-cell sub-headers">распис</td>
+                <td class="stats-cell sub-headers">факт</td>
+                <td class="stats-cell sub-headers">план</td>
+                <td class="stats-cell sub-headers">сверх</td>
+                <td class="stats-cell sub-headers">опозд</td>
+                <td class="stats-cell sub-headers">актив</td>
+                <td class="stats-cell sub-headers">неактив</td>
+                <td class="stats-cell sub-headers">прод</td>
+                <td class="stats-cell sub-headers">непрод</td>
+                <td class="stats-cell sub-headers">нейтр</td>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="date-cell" style="font-weight: normal; font-size: 9px;">22 февраля 2024 г.</td>
+                <td colspan="24" style="padding: 0;">
+                    <div class="timeline-bar">
+                        <div class="time-segment inactive" style="width: 10%;"></div>
+                        <div class="time-segment productive" style="width: 60%;"></div>
+                        <div class="time-segment inactive" style="width: 30%;"></div>
+                    </div>
+                </td>
+                <td class="stats-cell">8ч 35м 43с</td>
+                <td class="stats-cell">9ч 00м 00с</td>
+                <td class="stats-cell">17ч 35м 26с</td>
+                <td class="stats-cell">18ч 00м 00с</td>
+                <td class="stats-cell">8ч 59м 43с</td>
+                <td class="stats-cell">9ч 00м 00с</td>
+                <td class="stats-cell">00м 00с</td>
+                <td class="stats-cell">02м 19с</td>
+                <td class="stats-cell">4ч 50м 54с</td>
+                <td class="stats-cell">04ч 08м 49с</td>
+                <td class="stats-cell">4ч 20м 44с</td>
+                <td class="stats-cell">27м 42с</td>
+                <td class="stats-cell">01м 30с</td>
+            </tr>
+            <tr>
+                <td colspan="25">
+                    <div class="productivity-section">
+                        <div class="productivity-title">Продуктивность</div>
+                        <div class="productivity-item">
+                            <div class="category-label">Приложения для SIP-телефонии</div>
+                            <div class="productivity-bar">
+                                <div class="productivity-fill productive" style="width: 89.63%;">
+                                    <span class="productivity-text">4ч 20м 44с (89.63%)</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="productivity-item">
+                            <div class="category-label">Бухгалтерия</div>
+                            <div class="productivity-bar">
+                                <div class="productivity-fill unproductive" style="width: 9.52%;">
+                                    <span class="productivity-text">27м 42с (9.52%)</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="productivity-item">
+                            <div class="category-label">Офисные приложения</div>
+                            <div class="productivity-bar">
+                                <div class="productivity-fill neutral" style="width: 0.50%;">
+                                    <span class="productivity-text">01м 27с (0.50%)</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="productivity-item">
+                            <div class="category-label">Интерфейс системы</div>
+                            <div class="productivity-bar">
+                                <div class="productivity-fill neutral" style="width: 0.31%;">
+                                    <span class="productivity-text">54c (0.31%)</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="productivity-title" style="margin-top: 15px;">Топ приложений</div>
+                        <div class="productivity-item">
+                            <div class="category-label">microsip.exe</div>
+                            <div class="productivity-bar">
+                                <div class="productivity-fill productive" style="width: 89.63%;">
+                                    <span class="productivity-text">4ч 20м 44с (89.63%)</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="productivity-item">
+                            <div class="category-label">1cv8c.exe</div>
+                            <div class="productivity-bar">
+                                <div class="productivity-fill unproductive" style="width: 9.52%;">
+                                    <span class="productivity-text">27м 42с (9.52%)</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="productivity-item">
+                            <div class="category-label">calculator.exe</div>
+                            <div class="productivity-bar">
+                                <div class="productivity-fill neutral" style="width: 0.50%;">
+                                    <span class="productivity-text">01м 27с (0.50%)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</body>
+</html>

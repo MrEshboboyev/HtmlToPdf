@@ -1,5 +1,6 @@
+﻿
+// Program.cs
 using HandlebarsDotNet;
-using HtmlToPdf;
 using PuppeteerSharp;
 using PuppeteerSharp.Media;
 using System.Globalization;
@@ -8,44 +9,103 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddSingleton<TimeTrackingReportFactory>();
 
-builder.Services.AddSingleton<InvoiceFactory>();
-
-// Register custom helpers for formatting
-Handlebars.RegisterHelper("formatDate", (context, arguments) =>
+// Register Handlebars helpers
+Handlebars.RegisterHelper("formatDateFull", (context, arguments) =>
 {
-    if (arguments[0] is DateOnly date)
+    if (arguments[0] is DateTime date)
     {
-        return date.ToString("dd/MM/yyyy");
+        return date.ToString("dd MMMM yyyy г.", new CultureInfo("ru-RU"));
     }
     return arguments[0]?.ToString() ?? "";
 });
 
-Handlebars.RegisterHelper("formatCurrency", (context, arguments) =>
+Handlebars.RegisterHelper("formatDateShort", (context, arguments) =>
 {
-    if (arguments[0] is decimal value)
+    if (arguments[0] is DateTime date)
     {
-        return value.ToString("C", CultureInfo.CreateSpecificCulture("en-US"));
+        return date.ToString("dd.MM.yyyy", new CultureInfo("ru-RU"));
     }
     return arguments[0]?.ToString() ?? "";
 });
 
-Handlebars.RegisterHelper("formatNumber", (context, arguments) =>
+Handlebars.RegisterHelper("formatTime", (context, arguments) =>
 {
-    if (arguments[0] is decimal value)
+    if (arguments[0] is TimeSpan time)
     {
-        return value.ToString("N2");
+        return $"{(int)time.TotalHours}ч {time.Minutes:00}м {time.Seconds:00}с";
     }
     return arguments[0]?.ToString() ?? "";
+});
+
+Handlebars.RegisterHelper("formatPercentage", (context, arguments) =>
+{
+    if (arguments.Length >= 2 && arguments[0] is TimeSpan part && arguments[1] is TimeSpan total)
+    {
+        var percentage = total.TotalSeconds > 0 ? (part.TotalSeconds / total.TotalSeconds) * 100 : 0;
+        return $"({percentage:F2}%)";
+    }
+    return "";
+});
+
+Handlebars.RegisterHelper("getActivityClass", (context, arguments) =>
+{
+    if (arguments[0] is string activity)
+    {
+        return activity switch
+        {
+            "Приложения для SIP-телефонии" or "Бухгалтерия" or "microsip.exe" or "1cv8c.exe" => "productive",
+            _ => "unproductive"
+        };
+    }
+    return "unproductive";
+});
+
+Handlebars.RegisterHelper("getCurrentDate", (context, arguments) =>
+{
+    return DateTime.Now.ToString("dd.MM.yyyy", new CultureInfo("ru-RU"));
+});
+
+Handlebars.RegisterHelper("eq", (context, arguments) =>
+{
+    return arguments.Length >= 2 && arguments[0]?.ToString() == arguments[1]?.ToString();
 });
 
 Handlebars.RegisterHelper("multiply", (context, arguments) =>
 {
-    if (arguments.Length >= 2 && arguments[0] is decimal a && arguments[1] is decimal b)
+    if (arguments.Length >= 2 && arguments[0] is TimeSpan time && arguments[1] is int multiplier)
     {
-        return a * b;
+        return time.TotalSeconds * multiplier;
     }
-    return 0m;
+    return 0;
+});
+
+Handlebars.RegisterHelper("divide", (context, arguments) =>
+{
+    if (arguments.Length >= 2 && arguments[0] is double numerator && arguments[1] is double denominator && denominator != 0)
+    {
+        return numerator / denominator;
+    }
+    return 0;
+});
+
+Handlebars.RegisterHelper("calculatePercentage", (context, arguments) =>
+{
+    if (arguments.Length >= 2 && arguments[0] is TimeSpan part && arguments[1] is TimeSpan total)
+    {
+        var percentage = total.TotalSeconds > 0 ? (part.TotalSeconds / total.TotalSeconds) * 100 : 0;
+        return percentage;
+    }
+    return 0;
+});
+
+Handlebars.RegisterHelper("each24", (writer, options, context, parameters) =>
+{
+    for (int i = 0; i < 24; i++)
+    {
+        options.Template(writer, i);
+    }
 });
 
 var app = builder.Build();
@@ -56,79 +116,42 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.MapGet("invoice-report", async (InvoiceFactory invoiceFactory) =>
+app.MapGet("detailed-time-tracking-report", async (TimeTrackingReportFactory factory) =>
 {
-    var invoice = invoiceFactory.Create(100);
+    var startDate = new DateTime(2024, 2, 16);
+    var endDate = new DateTime(2024, 2, 25);
+    var report = factory.CreateDetailedReport(startDate, endDate);
 
-    var templatePath = Path.Combine(Directory.GetCurrentDirectory(), "Views", "InvoiceReport.hbs");
+    var templatePath = Path.Combine(Directory.GetCurrentDirectory(), "Views", "DetailedTimeTrackingReport.hbs");
     var templateContent = await File.ReadAllTextAsync(templatePath);
 
     var template = Handlebars.Compile(templateContent);
-
-    var logoPath = Path.Combine(Directory.GetCurrentDirectory(), "logo.jpg");
-    var logoBytes = await File.ReadAllBytesAsync(logoPath);
-    var logoBase64 = Convert.ToBase64String(logoBytes);
-
-    var data = new
-    {
-        invoice.Number,
-        invoice.IssuedDate,
-        invoice.DueDate,
-        invoice.SellerAddress,
-        invoice.CustomerAddress,
-        invoice.LineItems,
-        Subtotal = invoice.LineItems.Sum(li => li.Price * li.Quantity),
-        Total = invoice.LineItems.Sum(li => li.Price * li.Quantity), // optionally apply tax
-        LogoBase64 = logoBase64
-    };
-
-    var html = template(data);
+    var html = template(report);
 
     var browserFetcher = new BrowserFetcher();
     await browserFetcher.DownloadAsync();
 
-    using var browser = await Puppeteer.LaunchAsync(new LaunchOptions
-    {
-        Headless = true
-    });
-
+    using var browser = await Puppeteer.LaunchAsync(new LaunchOptions { Headless = true });
     using var page = await browser.NewPageAsync();
 
     await page.SetContentAsync(html);
-
     await page.EvaluateExpressionHandleAsync("document.fonts.ready");
 
     var pdfData = await page.PdfDataAsync(new PdfOptions
     {
-        HeaderTemplate =
-            """
-            <div style='font-size: 14px; text-align: center; padding: 10px;'>
-                <span style='margin-right: 20px;'><span class='title'></span></span>
-                <span><span class='date'></span></span>
-            </div>
-            """,
-        FooterTemplate =
-            """
-            <div style='font-size: 14px; text-align: center; padding: 10px;'>
-                <span style='margin-right: 20px;'>Generated on <span class='date'></span></span>
-                <span>Page <span class='pageNumber'></span> of <span class='totalPages'></span></span>
-            </div>
-            """,
-        DisplayHeaderFooter = true,
         Format = PaperFormat.A4,
         PrintBackground = true,
         MarginOptions = new MarginOptions
         {
-            Top = "50px",
-            Right = "20px",
-            Bottom = "50px",
-            Left = "20px"
+            Top = "15px",
+            Right = "15px",
+            Bottom = "15px",
+            Left = "15px"
         }
     });
 
-    return Results.File(pdfData, "application/pdf", $"invoice-{invoice.Number}.pdf");
+    return Results.File(pdfData, "application/pdf", $"detailed-time-tracking-{startDate:yyyy-MM-dd}-{endDate:yyyy-MM-dd}.pdf");
 });
 
 app.UseHttpsRedirection();
-
 app.Run();
